@@ -5,1351 +5,656 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GeoCapture Bildviewer</title>
 <style>
-/* ============================================================
-   RESET & BASE
-============================================================ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#111827;color:#e0e0e0;display:flex;flex-direction:column}
+:root{
+  --bg:#0f1117;--surf:#1a1d27;--brd:#2a2d3a;
+  --acc:#7cb518;--acc2:#5a8a10;
+  --txt:#e8eaf0;--mut:#8b8fa8;
+  --red:#e05252;--blue:#4a9eff;
+}
+html,body{height:100%;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:14px;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
 
-/* ============================================================
-   FILTER BAR (einzige sichtbare Leiste oben)
-============================================================ */
-#filterBar{
-  background:#0d1117;
-  border-bottom:2px solid #6abf4b;
-  padding:8px 10px 6px;
-  flex-shrink:0;
-}
-/* Zeile 1: Logo + Schnellfilter-Buttons */
-.fbar-top{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  flex-wrap:wrap;
-  margin-bottom:6px;
-}
-.gc-logo{
-  font-size:13px;
-  font-weight:700;
-  color:#6abf4b;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  white-space:nowrap;
-  margin-right:4px;
-}
-.gc-logo span{color:#ccc}
-.quick-btns{display:flex;gap:4px;flex-wrap:wrap}
-.qbtn{
-  background:#1e2a3a;
-  color:#aaa;
-  border:1px solid #334;
-  padding:4px 9px;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:11px;
-  white-space:nowrap;
-  transition:all 0.15s;
-}
-.qbtn:hover,.qbtn.active{background:#6abf4b;color:#000;border-color:#6abf4b;font-weight:700}
-#reloadBtn{
-  margin-left:auto;
-  background:#1e3a2a;
-  color:#6abf4b;
-  border:1px solid #6abf4b44;
-  padding:4px 10px;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:11px;
-  white-space:nowrap;
-}
-#reloadBtn:hover{background:#2a4a3a}
+/* ── FILTERLEISTE ── */
+#fbar{background:var(--surf);border-bottom:1px solid var(--brd);padding:8px 10px;flex-shrink:0;position:relative}
+#prog{height:3px;background:var(--acc);width:0%;transition:width .3s;position:absolute;top:0;left:0;right:0}
+.qrow{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.qb{background:var(--bg);border:1px solid var(--brd);color:var(--mut);border-radius:5px;
+    padding:5px 11px;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.qb:hover{border-color:var(--acc);color:var(--txt)}
+.qb.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.frow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.frow select,.frow input[type=date]{
+  background:var(--bg);border:1px solid var(--brd);color:var(--txt);
+  border-radius:5px;padding:5px 8px;font-size:12px;height:30px;cursor:pointer}
+.frow select{min-width:130px}
+.frow input[type=date]{width:130px}
+.frow select:focus,.frow input:focus{outline:none;border-color:var(--acc)}
+#btnLoad{background:var(--acc);border:none;color:#fff;border-radius:5px;
+  padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;height:30px;white-space:nowrap}
+#btnLoad:hover{background:var(--acc2)}
+#btnLoad:disabled{opacity:.45;cursor:not-allowed}
+#stat{font-size:11px;color:var(--mut);margin-top:5px;min-height:14px}
+#stat.err{color:var(--red)}
 
-/* Zeile 2: Datum + Dropdown-Filter */
-.fbar-bot{
-  display:flex;
-  align-items:center;
-  gap:5px;
-  flex-wrap:wrap;
-}
-.fbar-bot label{font-size:10px;color:#555;white-space:nowrap}
-.fbar-bot input[type=date]{
-  background:#1e2a3a;border:1px solid #334;color:#e0e0e0;
-  padding:3px 5px;border-radius:3px;font-size:11px;width:115px;
-}
-.fbar-bot select{
-  background:#1e2a3a;border:1px solid #334;color:#e0e0e0;
-  padding:3px 5px;border-radius:3px;font-size:11px;max-width:170px;
-}
-.src-toggle{display:flex;gap:3px}
-.src-btn{
-  padding:3px 7px;border-radius:3px;cursor:pointer;font-size:10px;
-  border:1px solid #334;background:#1e2a3a;color:#666;
-}
-.src-btn.on{background:#6abf4b22;color:#6abf4b;border-color:#6abf4b55;font-weight:700}
-#fltBtn{background:#6abf4b;color:#000;border:none;padding:4px 12px;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700}
-#rstBtn{background:transparent;color:#555;border:1px solid #334;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:11px}
+/* ── HAUPTBEREICH ── */
+#main{display:flex;flex:1;overflow:hidden}
 
-/* PROGRESS */
-#progress{height:3px;background:#6abf4b;width:0%;transition:width 0.3s;flex-shrink:0}
-
-/* STATS */
-#stats{
-  font-size:11px;color:#6abf4b;
-  padding:3px 10px;
-  background:#0a0f1a;
-  flex-shrink:0;
-  border-bottom:1px solid #1a2030;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-/* ============================================================
-   MAIN LAYOUT
-============================================================ */
-#main{display:flex;flex:1;overflow:hidden;min-height:0}
-
-/* ============================================================
-   THUMBNAIL SIDEBAR
-============================================================ */
-#sidebar{
-  width:150px;
-  flex-shrink:0;
-  display:flex;
-  flex-direction:column;
-  background:#0d1117;
-  border-right:1px solid #1e2a3a;
-  overflow:hidden;
-}
-#thumbList{
-  flex:1;
-  overflow-y:auto;
-  overflow-x:hidden;
-}
-#thumbList::-webkit-scrollbar{width:3px}
-#thumbList::-webkit-scrollbar-thumb{background:#2a3a4a;border-radius:2px}
-
-.thumb-item{
-  padding:5px 6px;
-  border-bottom:1px solid #141e2a;
-  cursor:pointer;
-  position:relative;
-  transition:background 0.12s;
-}
-.thumb-item:hover{background:#162030}
-.thumb-item.active{background:#1a3020;border-left:3px solid #6abf4b}
-
-.t-img-wrap{position:relative;width:100%;height:85px;border-radius:3px;overflow:hidden;background:#1e2a3a}
-.t-img{width:100%;height:100%;object-fit:cover;display:block}
-.t-ph{
-  width:100%;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:24px;color:#2a3a4a;
-}
-.t-loading{
-  width:100%;height:100%;
-  display:flex;align-items:center;justify-content:center;
-}
-.t-spinner{
-  width:18px;height:18px;
-  border:2px solid #2a3a4a;
-  border-top-color:#6abf4b;
-  border-radius:50%;
-  animation:spin 0.7s linear infinite;
-}
-.t-num{
-  position:absolute;bottom:3px;right:3px;
-  background:#000b;color:#6abf4b;
-  font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;
-}
-.t-src{
-  position:absolute;top:3px;left:3px;
-  font-size:8px;padding:1px 4px;border-radius:2px;font-weight:700;
-}
-.t-src.form{background:#1a3a6a;color:#6ab0ff}
-.t-src.doc{background:#3a2010;color:#ffaa6a}
-
-.t-meta{margin-top:4px}
-.t-proj{
-  font-size:10px;color:#6abf4b;font-weight:700;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  line-height:1.3;
-}
-.t-date{font-size:10px;color:#aaa;margin-top:1px}
-.t-emp{font-size:9px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* Sidebar Pagination */
-#sidebarPg{
-  flex-shrink:0;
-  background:#0a0f1a;
-  border-top:1px solid #1a2030;
-  padding:4px 6px;
-  display:flex;
-  align-items:center;
-  gap:4px;
-  font-size:10px;
-  color:#555;
-}
-#sidebarPg button{
-  background:#1e2a3a;color:#777;border:1px solid #2a3a4a;
-  padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px;
-}
-#sidebarPg button:disabled{opacity:0.3;cursor:default}
-#pgInfo{flex:1;text-align:center;font-size:9px;color:#555}
-.pg-size-sel{
-  background:#1e2a3a;border:1px solid #2a3a4a;color:#777;
-  padding:1px 3px;border-radius:3px;font-size:9px;
-}
-
-/* ============================================================
-   VIEWER
-============================================================ */
-#viewer{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-  position:relative;
-  background:#0a0f1a;
-  min-width:0;
-}
-
-#imgWrap{
-  flex:1;
-  position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  user-select:none;
-  cursor:grab;
-}
-#imgWrap:active{cursor:grabbing}
-
-#mainImg{
-  max-width:100%;
-  max-height:100%;
-  object-fit:contain;
-  pointer-events:none;
-  border-radius:4px;
-  display:none;
-}
-#imgPlaceholder{
-  text-align:center;
-  color:#2a3a4a;
-}
-#imgPlaceholder .ph-icon{font-size:56px}
-#imgPlaceholder .ph-text{font-size:13px;color:#3a4a5a;margin-top:8px}
-
-.nav-btn{
-  position:absolute;top:50%;transform:translateY(-50%);
-  background:#000c;color:#6abf4b;
-  border:1px solid #6abf4b33;
-  width:44px;height:70px;
-  font-size:26px;cursor:pointer;
-  border-radius:6px;
-  display:flex;align-items:center;justify-content:center;
-  z-index:10;
-  transition:background 0.15s,opacity 0.15s;
-  opacity:0.7;
-}
-.nav-btn:hover{background:#0d2a1a;opacity:1}
-#navP{left:6px}
-#navN{right:6px}
-
-#imgCounter{
-  position:absolute;top:8px;left:50%;transform:translateX(-50%);
-  background:#000c;color:#aaa;font-size:12px;
-  padding:3px 12px;border-radius:12px;
-  pointer-events:none;
-}
-
-#loadingOverlay{
-  display:none;position:absolute;inset:0;
-  background:#0a0f1a88;
-  align-items:center;justify-content:center;z-index:20;
-}
-#loadingOverlay.show{display:flex}
-.spinner{
-  width:44px;height:44px;
-  border:3px solid #1e2a3a;
-  border-top-color:#6abf4b;
-  border-radius:50%;
-  animation:spin 0.8s linear infinite;
-}
+/* ── THUMBS (Desktop: links) ── */
+#tpane{width:110px;background:var(--surf);border-right:1px solid var(--brd);
+  overflow-y:auto;overflow-x:hidden;flex-shrink:0;display:flex;flex-direction:column}
+#tpane::-webkit-scrollbar{width:3px}
+#tpane::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+.ti{width:100%;aspect-ratio:1;overflow:hidden;cursor:pointer;position:relative;
+  border-bottom:1px solid var(--brd);flex-shrink:0;background:var(--bg)}
+.ti img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s}
+.ti img.loaded{opacity:1}
+.ti.act::after{content:'';position:absolute;inset:0;border:3px solid var(--acc);pointer-events:none}
+.ti .tb{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);
+  color:#fff;font-size:9px;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.tsp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.ring{width:20px;height:20px;border:2px solid var(--brd);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+#tpager{padding:6px;display:flex;gap:4px;align-items:center;justify-content:center;
+  border-top:1px solid var(--brd);flex-shrink:0}
+#tpager button{background:var(--bg);border:1px solid var(--brd);color:var(--txt);
+  border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer}
+#tpager button:disabled{opacity:.3;cursor:not-allowed}
+#tpager span{font-size:10px;color:var(--mut)}
 
-/* ============================================================
-   INFO BAR (groß, gut lesbar)
-============================================================ */
-#infoBar{
-  flex-shrink:0;
-  background:#0d1117;
-  border-top:2px solid #1e2a3a;
-  padding:0;
-}
-/* Hauptzeile: Projekt + Datum groß */
-.info-main{
-  display:flex;
-  align-items:stretch;
-  border-bottom:1px solid #1a2030;
-}
-.info-proj-block{
-  flex:1;
-  padding:8px 12px;
-  min-width:0;
-}
-.info-proj-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px}
-.info-proj-val{
-  font-size:16px;font-weight:700;color:#6abf4b;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  line-height:1.2;
-}
-.info-date-block{
-  flex-shrink:0;
-  padding:8px 14px;
-  text-align:right;
-  border-left:1px solid #1a2030;
-  display:flex;flex-direction:column;justify-content:center;
-}
-.info-date-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px}
-.info-date-val{font-size:16px;font-weight:700;color:#fff;white-space:nowrap}
+/* ── VIEWER ── */
+#viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#iwrap{flex:1;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;background:#000;user-select:none}
+#mimg{max-width:100%;max-height:100%;object-fit:contain;display:none;transition:opacity .15s}
+#ph{color:var(--mut);font-size:15px;text-align:center;padding:20px}
+.nb{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.15);color:#fff;width:40px;height:60px;
+  border-radius:6px;font-size:20px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;z-index:10;transition:background .15s}
+.nb:hover{background:rgba(0,0,0,.85)}
+#navP{left:8px}#navN{right:8px}
 
-/* Detailzeile */
-.info-details{
-  display:flex;
-  align-items:center;
-  gap:0;
-  flex-wrap:nowrap;
-  overflow-x:auto;
-  padding:5px 10px;
-}
-.info-details::-webkit-scrollbar{height:2px}
-.info-details::-webkit-scrollbar-thumb{background:#2a3a4a}
-.info-cell{
-  display:flex;flex-direction:column;
-  padding:0 10px;
-  border-right:1px solid #1a2030;
-  flex-shrink:0;
-}
-.info-cell:first-child{padding-left:0}
-.info-cell:last-child{border-right:none}
-.ic-label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap}
-.ic-val{font-size:12px;color:#ccc;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
-.status-badge{
-  display:inline-block;padding:2px 7px;border-radius:3px;
-  font-size:11px;font-weight:700;
-}
-.status-badge.ausgefüllt{background:#1a3a1a;color:#6abf4b}
-.status-badge.abgeschlossen{background:#1a2a3a;color:#6ab0ff}
-.status-badge.offen{background:#3a2a1a;color:#ffaa44}
-.status-badge.abgelehnt{background:#3a1a1a;color:#ff6a6a}
-.status-badge.dokument{background:#3a2010;color:#ffaa6a}
+/* ── INFO-LEISTE ── */
+#ibar{background:var(--surf);border-top:1px solid var(--brd);padding:10px 14px;flex-shrink:0}
+#iproj{font-size:20px;font-weight:800;color:var(--acc);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+#idate{font-size:16px;font-weight:700;color:var(--txt);margin-top:3px}
+#imeta{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.mi{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:4px}
+.mi strong{color:var(--txt)}
+.bdg{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.bf{background:#1e3a5f;color:#4a9eff}
+.bd{background:#2a1e3a;color:#b06aff}
+.bok{background:#1a3a1a;color:#5adb5a}
+.bdn{background:#1a2a3a;color:#4a9eff}
+.bop{background:#3a2a1a;color:#ffaa4a}
+.brj{background:#3a1a1a;color:#ff5a5a}
+#iact{display:flex;gap:8px;margin-top:8px}
+#iact button{background:var(--bg);border:1px solid var(--brd);color:var(--txt);
+  border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer}
+#iact button:hover{border-color:var(--acc);color:var(--acc)}
+#icnt{font-size:11px;color:var(--mut);margin-left:auto;align-self:flex-end}
 
-#dlBtn{
-  margin-left:auto;flex-shrink:0;
-  background:#1e3a2a;color:#6abf4b;
-  border:1px solid #6abf4b33;
-  padding:5px 14px;border-radius:4px;
-  cursor:pointer;font-size:12px;
-  white-space:nowrap;
-}
-#dlBtn:hover{background:#2a4a3a}
+/* ── LIGHTBOX ── */
+#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);
+  z-index:1000;align-items:center;justify-content:center}
+#lb.open{display:flex}
+#lb img{max-width:98vw;max-height:98vh;object-fit:contain}
+#lbX{position:absolute;top:12px;right:16px;color:#fff;font-size:30px;
+  cursor:pointer;background:none;border:none;line-height:1}
 
-/* ============================================================
-   LIGHTBOX
-============================================================ */
-#lightbox{
-  display:none;position:fixed;inset:0;
-  background:#000e;z-index:1000;
-  align-items:center;justify-content:center;
-}
-#lightbox.open{display:flex}
-#lbImg{max-width:96vw;max-height:96vh;object-fit:contain;border-radius:6px}
-#lbClose{
-  position:absolute;top:14px;right:16px;
-  color:#fff;font-size:26px;cursor:pointer;
-  background:#0009;width:40px;height:40px;
-  border-radius:50%;display:flex;align-items:center;justify-content:center;
-}
-
-/* TOAST */
-#toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-  background:#1e3a2a;color:#6abf4b;
-  padding:8px 20px;border-radius:6px;font-size:12px;
-  display:none;z-index:2000;border:1px solid #6abf4b33;
-  white-space:nowrap;
-}
-
-/* ============================================================
-   MOBILE: <= 768px  → Sidebar wird zum Bottom-Sheet
-============================================================ */
+/* ── MOBILE ≤768px ── */
 @media(max-width:768px){
-  body{overflow:hidden}
-
-  /* Filter kompakter */
-  .fbar-top{gap:4px}
-  .qbtn{padding:5px 8px;font-size:11px}
-  .fbar-bot{gap:4px}
-  .fbar-bot input[type=date]{width:105px;font-size:11px}
-  .fbar-bot select{max-width:130px;font-size:11px}
-
-  /* Hauptlayout: Viewer oben, Sidebar unten als Leiste */
   #main{flex-direction:column}
-
-  #sidebar{
-    width:100%;
-    height:140px;
-    flex-direction:row;
-    border-right:none;
-    border-top:2px solid #1e2a3a;
-    order:2;
-  }
-  #thumbList{
-    flex:1;
-    overflow-x:auto;
-    overflow-y:hidden;
-    display:flex;
-    flex-direction:row;
-    gap:0;
-  }
-  .thumb-item{
-    flex-shrink:0;
-    width:100px;
-    padding:4px;
-    border-bottom:none;
-    border-right:1px solid #141e2a;
-  }
-  .thumb-item.active{
-    border-left:none;
-    border-top:3px solid #6abf4b;
-    background:#1a3020;
-  }
-  .t-img-wrap{height:70px}
-  .t-meta{margin-top:3px}
-  .t-proj{font-size:9px}
-  .t-date{font-size:9px}
-  .t-emp{display:none}
-
-  #sidebarPg{
-    flex-direction:column;
-    width:50px;
-    flex-shrink:0;
-    border-top:none;
-    border-left:1px solid #1a2030;
-    padding:4px 2px;
-    justify-content:center;
-    gap:6px;
-  }
-  #sidebarPg button{padding:4px 3px;font-size:14px;width:100%}
-  #pgInfo{font-size:8px;text-align:center}
-  .pg-size-sel{font-size:8px;width:100%}
-
-  /* Viewer */
-  #viewer{order:1;flex:1}
-
-  /* Info Bar: 2-zeilig kompakt */
-  .info-proj-val{font-size:14px}
-  .info-date-val{font-size:14px}
-  .info-details{padding:4px 8px}
-  .ic-val{font-size:11px}
-
-  /* Nav-Buttons kleiner */
-  .nav-btn{width:36px;height:56px;font-size:22px}
+  #tpane{width:100%;height:88px;flex-direction:row;overflow-x:auto;overflow-y:hidden;
+    border-right:none;border-top:1px solid var(--brd);order:2}
+  .ti{width:80px;height:80px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--brd)}
+  #tpager{display:none}
+  #viewer{order:1}
+  #iproj{font-size:15px}
+  #idate{font-size:13px}
+  .frow select{min-width:110px}
+  .frow input[type=date]{width:112px}
+  .nb{width:32px;height:50px;font-size:16px}
 }
-
-/* ============================================================
-   SEHR KLEIN: <= 480px (Smartphone Hochformat)
-============================================================ */
 @media(max-width:480px){
-  .fbar-bot{display:none} /* Datum-Zeile ausblenden, nur Quick-Buttons */
-  #fltBtn,#rstBtn{display:none}
-  .qbtn{padding:6px 8px;font-size:12px}
-
-  #sidebar{height:120px}
-  .thumb-item{width:85px}
-  .t-img-wrap{height:60px}
-
-  .info-main{flex-direction:column}
-  .info-date-block{
-    border-left:none;
-    border-top:1px solid #1a2030;
-    text-align:left;
-    padding:5px 12px;
-  }
-  .info-proj-val,.info-date-val{font-size:13px}
-
-  /* Datum-Filter per Tap auf Datum-Anzeige öffnen */
-  #mobileDateRow{
-    display:flex;
-    gap:5px;
-    padding:4px 10px;
-    background:#0a0f1a;
-    border-bottom:1px solid #1a2030;
-    flex-shrink:0;
-  }
-  #mobileDateRow input{
-    background:#1e2a3a;border:1px solid #334;color:#e0e0e0;
-    padding:4px 6px;border-radius:3px;font-size:12px;flex:1;
-  }
-  #mobileDateRow label{font-size:10px;color:#555;align-self:center}
+  .qb{font-size:11px;padding:4px 8px}
+  .frow select,.frow input{font-size:11px}
+  .frow input[type=date]{width:105px}
+  #iproj{font-size:14px}
+  #idate{font-size:12px}
 }
 </style>
 </head>
 <body>
+<div id="app">
 
-<!-- FILTER BAR -->
-<div id="filterBar">
-  <!-- Zeile 1: Logo + Schnellfilter -->
-  <div class="fbar-top">
-    <div class="gc-logo">geo<span>capture</span></div>
-    <div class="quick-btns">
-      <button class="qbtn" onclick="setQuick('today')">Heute</button>
-      <button class="qbtn" onclick="setQuick('yesterday')">Gestern</button>
-      <button class="qbtn" onclick="setQuick('week')">Diese Woche</button>
-      <button class="qbtn" onclick="setQuick('month')">Dieser Monat</button>
-      <button class="qbtn" onclick="setQuick('lastmonth')">Letzter Monat</button>
-      <button class="qbtn" onclick="setQuick('year')">Dieses Jahr</button>
-      <button class="qbtn" onclick="setQuick('all')">Alle</button>
+  <!-- FILTERLEISTE -->
+  <div id="fbar">
+    <div id="prog"></div>
+    <div class="qrow">
+      <button class="qb on" data-q="today"     onclick="setQ('today')">Heute</button>
+      <button class="qb"    data-q="yesterday" onclick="setQ('yesterday')">Gestern</button>
+      <button class="qb"    data-q="week"      onclick="setQ('week')">Diese Woche</button>
+      <button class="qb"    data-q="month"     onclick="setQ('month')">Dieser Monat</button>
+      <button class="qb"    data-q="lastmonth" onclick="setQ('lastmonth')">Letzter Monat</button>
+      <button class="qb"    data-q="year"      onclick="setQ('year')">Dieses Jahr</button>
+      <button class="qb"    data-q="all"       onclick="setQ('all')">Alle</button>
     </div>
-    <button id="reloadBtn" onclick="loadAll()">&#8635; Neu laden</button>
-  </div>
-  <!-- Zeile 2: Datum + Dropdowns -->
-  <div class="fbar-bot">
-    <label>VON</label>
-    <input type="date" id="fFrom">
-    <label>BIS</label>
-    <input type="date" id="fTo">
-    <label>PROJEKT</label>
-    <select id="fProj"><option value="">Alle Projekte</option></select>
-    <label>ERFASSER</label>
-    <select id="fEmp"><option value="">Alle Erfasser</option></select>
-    <label>STATUS</label>
-    <select id="fStat">
-      <option value="">Alle Status</option>
-      <option value="Ausgefüllt">Ausgefüllt</option>
-      <option value="Abgeschlossen">Abgeschlossen</option>
-      <option value="Offen">Offen</option>
-      <option value="Abgelehnt">Abgelehnt</option>
-      <option value="Dokument">Dokument</option>
-    </select>
-    <label>FORMULAR</label>
-    <select id="fForm"><option value="">Alle Formulare</option></select>
-    <label>QUELLE</label>
-    <div class="src-toggle">
-      <button class="src-btn on" id="srcForm" onclick="toggleSource('form')">FRM</button>
-      <button class="src-btn on" id="srcDoc" onclick="toggleSource('doc')">DOK</button>
-    </div>
-    <label>MAX</label>
-    <select id="fLimit" style="max-width:70px">
-      <option value="500">500</option>
-      <option value="1000">1000</option>
-      <option value="2000">2000</option>
-    </select>
-    <button id="fltBtn" onclick="applyFilter()">Filtern</button>
-    <button id="rstBtn" onclick="resetFilter()">Reset</button>
-  </div>
-</div>
-
-<!-- Mobile: Datum-Zeile (nur <=480px sichtbar) -->
-<div id="mobileDateRow" style="display:none">
-  <label>VON</label>
-  <input type="date" id="mFrom">
-  <label>BIS</label>
-  <input type="date" id="mTo">
-  <button id="fltBtn2" onclick="applyFilterMobile()" style="background:#6abf4b;color:#000;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:700">OK</button>
-</div>
-
-<!-- PROGRESS -->
-<div id="progress"></div>
-
-<!-- STATS -->
-<div id="stats">Lade Daten...</div>
-
-<!-- MAIN -->
-<div id="main">
-  <!-- SIDEBAR / THUMBNAILS -->
-  <div id="sidebar">
-    <div id="thumbList"></div>
-    <div id="sidebarPg">
-      <button id="pgP" disabled>&#8249;</button>
-      <div id="pgInfo">-</div>
-      <button id="pgN" disabled>&#8250;</button>
-      <select class="pg-size-sel" id="pgSize">
-        <option value="20">20</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
+    <div class="frow">
+      <input type="date" id="fFrom">
+      <input type="date" id="fTo">
+      <select id="fProj"><option value="">Alle Projekte</option></select>
+      <select id="fEmp"><option value="">Alle Erfasser</option></select>
+      <select id="fStat">
+        <option value="">Alle Status</option>
+        <option value="FILLED">Ausgefüllt</option>
+        <option value="FINISHED">Abgeschlossen</option>
+        <option value="OPEN">Offen</option>
+        <option value="REJECTED">Abgelehnt</option>
+        <option value="DOC">Dokument</option>
       </select>
+      <select id="fForm"><option value="">Alle Formulare</option></select>
+      <button id="btnLoad" onclick="loadAll()">&#9654; Laden</button>
     </div>
+    <div id="stat"></div>
   </div>
 
-  <!-- VIEWER -->
-  <div id="viewer">
-    <div id="loadingOverlay"><div class="spinner"></div></div>
-    <div id="imgWrap">
-      <div id="imgPlaceholder">
-        <div class="ph-icon">&#128444;</div>
-        <div class="ph-text">Bild auswählen</div>
+  <!-- HAUPTBEREICH -->
+  <div id="main">
+    <div id="tpane"></div>
+    <div id="viewer">
+      <div id="iwrap">
+        <div id="ph">Zeitraum wählen und Laden klicken</div>
+        <img id="mimg" src="" alt="" onclick="openLB()">
+        <button class="nb" id="navP" onclick="nav(-1)">&#8249;</button>
+        <button class="nb" id="navN" onclick="nav(1)">&#8250;</button>
       </div>
-      <img id="mainImg" alt="Bild">
-      <button class="nav-btn" id="navP">&#8249;</button>
-      <button class="nav-btn" id="navN">&#8250;</button>
-      <div id="imgCounter"></div>
-    </div>
-
-    <!-- INFO BAR -->
-    <div id="infoBar">
-      <!-- Hauptzeile: Projekt + Datum -->
-      <div class="info-main">
-        <div class="info-proj-block">
-          <div class="info-proj-label">Projekt</div>
-          <div class="info-proj-val" id="iProj">—</div>
+      <div id="ibar">
+        <div id="iproj">—</div>
+        <div id="idate">—</div>
+        <div id="imeta">
+          <span class="mi" id="memp"></span>
+          <span class="mi" id="mform"></span>
+          <span class="mi" id="msrc"></span>
+          <span class="mi" id="mst"></span>
+          <span id="icnt" class="mi"></span>
         </div>
-        <div class="info-date-block">
-          <div class="info-date-label">Datum</div>
-          <div class="info-date-val" id="iDate">—</div>
+        <div id="iact">
+          <button onclick="dlCurrent()">&#8595; Download</button>
+          <button onclick="openLB()">&#9974; Vollbild</button>
         </div>
-      </div>
-      <!-- Detailzeile -->
-      <div class="info-details">
-        <div class="info-cell">
-          <span class="ic-label">Formular / Typ</span>
-          <span class="ic-val" id="iForm">—</span>
-        </div>
-        <div class="info-cell">
-          <span class="ic-label">Erfasser</span>
-          <span class="ic-val" id="iEmp">—</span>
-        </div>
-        <div class="info-cell">
-          <span class="ic-label">Status</span>
-          <span class="ic-val" id="iStat">—</span>
-        </div>
-        <div class="info-cell">
-          <span class="ic-label">Quelle</span>
-          <span class="ic-val" id="iSrc">—</span>
-        </div>
-        <div class="info-cell">
-          <span class="ic-label">Datei</span>
-          <span class="ic-val" id="iFile">—</span>
-        </div>
-        <button id="dlBtn" onclick="downloadCurrent()">&#8595; Download</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- LIGHTBOX -->
-<div id="lightbox">
-  <div id="lbClose" onclick="closeLightbox()">&#10005;</div>
-  <img id="lbImg" alt="Vollbild">
+<div id="lb" onclick="closeLB()">
+  <button id="lbX" onclick="closeLB()">&#10005;</button>
+  <img id="lbImg" src="" alt="">
 </div>
 
-<!-- TOAST -->
-<div id="toast"></div>
-
 <script>
-// ============================================================
-// KONFIGURATION (fest hinterlegt)
-// ============================================================
-const API_KEY  = '66781e96424b5a2f94397357d797770a';
-const BASE_URL = 'https://app.geocapture.net/api';
+// ═══════════════════════════════════════════════
+// KONFIGURATION
+// ═══════════════════════════════════════════════
+const KEY  = '66781e96424b5a2f94397357d797770a';
+const BASE = 'https://app.geocapture.net/api';
+const PAGE_SIZE = 100; // Bilder pro API-Seite
 
-function api(path) {
-  return `${BASE_URL}${path}${path.includes('?') ? '&' : '?'}apitoken=${API_KEY}`;
-}
-
-// ============================================================
+// ═══════════════════════════════════════════════
 // STATE
-// ============================================================
-let allImages  = [];
-let rawImages  = [];
-let currentIdx = 0;
-let currentPage = 0;
-let pageSize   = 20;
-let sourceForm = true;
-let sourceDoc  = true;
-let projectMap = {};
-let employeeMap = {};
-let activeQuick = null;
+// ═══════════════════════════════════════════════
+let allImgs  = [];
+let filtered = [];
+let curIdx   = 0;
+let tPage    = 0;
+const TPP    = 50; // Thumbs pro Seite (Desktop)
+let projects = {};
+let employees= {};
+let formSet  = new Set();
+let loadTok  = 0;
 
-// ============================================================
-// INIT
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  // Mobile-Datumzeile nur bei sehr kleinen Screens
-  const mdr = document.getElementById('mobileDateRow');
-  function checkMobile() {
-    mdr.style.display = window.innerWidth <= 480 ? 'flex' : 'none';
-  }
-  checkMobile();
-  window.addEventListener('resize', checkMobile);
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const isoDate = d => d.toISOString().split('T')[0];
+const today   = () => isoDate(new Date());
+const fmtDate = s => {
+  if(!s) return '—';
+  const d = new Date(s);
+  return isNaN(d) ? s : d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+};
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
-  // Default: Heute
-  setQuick('today');
-
-  // Events
-  document.getElementById('pgP').addEventListener('click', () => changePage(-1));
-  document.getElementById('pgN').addEventListener('click', () => changePage(1));
-  document.getElementById('pgSize').addEventListener('change', e => {
-    pageSize = parseInt(e.target.value);
-    currentPage = 0;
-    renderThumbs();
-  });
-  document.getElementById('mainImg').addEventListener('click', openLightbox);
-
-  // Datum-Sync Mobile <-> Desktop
-  ['fFrom','fTo'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => {
-      activeQuick = null;
-      document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
-    });
-  });
-  document.getElementById('mFrom').addEventListener('change', e => {
-    document.getElementById('fFrom').value = e.target.value;
-    activeQuick = null;
-  });
-  document.getElementById('mTo').addEventListener('change', e => {
-    document.getElementById('fTo').value = e.target.value;
-    activeQuick = null;
-  });
-
-  setupSwipe();
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft')  navigate(-1);
-    if (e.key === 'ArrowRight') navigate(1);
-    if (e.key === 'Escape')     closeLightbox();
-  });
-
-  loadAll();
-});
-
-// ============================================================
-// SCHNELLFILTER-BUTTONS
-// ============================================================
-function setQuick(key) {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  let from, to;
-
-  if (key === 'today') {
-    from = to = fmtDate(today);
-  } else if (key === 'yesterday') {
-    const y = new Date(today); y.setDate(y.getDate()-1);
-    from = to = fmtDate(y);
-  } else if (key === 'week') {
-    const mon = new Date(today);
-    mon.setDate(today.getDate() - ((today.getDay()+6)%7));
-    from = fmtDate(mon);
-    to   = fmtDate(today);
-  } else if (key === 'month') {
-    from = fmtDate(new Date(today.getFullYear(), today.getMonth(), 1));
-    to   = fmtDate(today);
-  } else if (key === 'lastmonth') {
-    const lm = new Date(today.getFullYear(), today.getMonth()-1, 1);
-    const lme = new Date(today.getFullYear(), today.getMonth(), 0);
-    from = fmtDate(lm);
-    to   = fmtDate(lme);
-  } else if (key === 'year') {
-    from = fmtDate(new Date(today.getFullYear(), 0, 1));
-    to   = fmtDate(today);
-  } else if (key === 'all') {
-    from = '2000-01-01';
-    to   = fmtDate(today);
-  }
-
-  document.getElementById('fFrom').value = from;
-  document.getElementById('fTo').value   = to;
-  document.getElementById('mFrom').value = from;
-  document.getElementById('mTo').value   = to;
-
-  // Button-Highlight
-  activeQuick = key;
-  document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
-  const map = {today:0,yesterday:1,week:2,month:3,lastmonth:4,year:5,all:6};
-  const btns = document.querySelectorAll('.qbtn');
-  if (btns[map[key]]) btns[map[key]].classList.add('active');
-
-  // Immer neu laden wenn Schnellfilter geklickt
-  loadAll();
+function setProgress(p){ $('prog').style.width = p+'%'; }
+function setStatus(msg,err){
+  const el=$('stat'); el.textContent=msg; el.className=err?'err':'';
 }
 
-function applyFilterMobile() {
-  document.getElementById('fFrom').value = document.getElementById('mFrom').value;
-  document.getElementById('fTo').value   = document.getElementById('mTo').value;
-  applyFilter();
-}
-
-// ============================================================
-// LOAD ALL DATA
-// ============================================================
-let loadToken = 0; // Abbruch-Token: wenn sich der Wert ändert, wird der laufende Ladevorgang abgebrochen
-
-async function loadAll() {
-  const myToken = ++loadToken;
-  setProgress(5);
-  showLoading(true);
-  document.getElementById('stats').textContent = 'Lade Daten...';
-
-  try {
-    // Projekte
-    const projData = await fetchJSON(api('/project/fetch?limit=500'));
-    const projects = projData?.result?.data || [];
-    projectMap = {};
-    projects.forEach(p => projectMap[p.id] = p.name);
-    fillSelect('fProj', projects.map(p => ({v:p.id, t:p.name})), 'Alle Projekte');
-    setProgress(20);
-
-    // Mitarbeiter
-    const empData = await fetchJSON(api('/employee/fetch?limit=500'));
-    const employees = empData?.result?.data || [];
-    employeeMap = {};
-    employees.forEach(e => {
-      employeeMap[e.id] = [e.lastName, e.firstName].filter(Boolean).join(', ');
-    });
-    fillSelect('fEmp', employees.map(e => ({v:e.id, t:employeeMap[e.id]})), 'Alle Erfasser');
-    setProgress(35);
-
-    // Formulardaten-Bilder
-    const formImages = sourceForm ? await loadFormImages() : [];
-    setProgress(65);
-
-    // Projektdokument-Bilder
-    const docImages = sourceDoc ? await loadDocImages(projects) : [];
-    setProgress(85);
-
-    // Abbruch prüfen
-    if (myToken !== loadToken) return;
-
-    // Zusammenführen
-    rawImages = [...formImages, ...docImages];
-    rawImages.sort((a,b) => new Date(b.dateRaw) - new Date(a.dateRaw));
-
-    // Formular-Dropdown
-    const forms = [...new Set(formImages.map(i => i.formName).filter(Boolean))].sort();
-    fillSelect('fForm', forms.map(f => ({v:f, t:f})), 'Alle Formulare');
-
-    setProgress(95);
-    applyFilter();
-    setProgress(100);
-    setTimeout(() => setProgress(0), 600);
-  } catch(err) {
-    showToast('Fehler: ' + err.message);
-    document.getElementById('stats').textContent = 'Fehler: ' + err.message;
-  }
-  showLoading(false);
-}
-
-// ============================================================
-// FORMULARDATEN-BILDER
-// ============================================================
-async function loadFormImages() {
-  const limit = document.getElementById('fLimit').value;
-  const from  = document.getElementById('fFrom').value;
-  const to    = document.getElementById('fTo').value;
-
-  let url = api(`/custom_form_data/media?limit=${limit}`);
-  if (from) url += `&filter[from]=${from}`;
-  if (to)   url += `&filter[to]=${to}`;
-
-  const mediaData = await fetchJSON(url, true);
-  const mediaList = mediaData?.result?.files || mediaData?.result?.data || [];
-
-  // Metadaten batched laden
-  const ids = [...new Set(mediaList.map(m => m.customFormDataId))];
-  const metaMap = {};
-  const BS = 100;
-  for (let i = 0; i < ids.length; i += BS) {
-    const batch = ids.slice(i, i+BS);
-    const qs = batch.map(id => `filter[byIds][]=${id}`).join('&');
-    const md = await fetchJSON(api(`/custom_form_data/fetch?${qs}&limit=${BS}`));
-    (md?.result?.data || []).forEach(item => metaMap[item.id] = item);
-  }
-
-  const statusMap = {FILLED:'Ausgefüllt',FINISHED:'Abgeschlossen',OPEN:'Offen',REJECTED:'Abgelehnt'};
-
-  return mediaList.map(m => {
-    const meta = metaMap[m.customFormDataId] || {};
-    const emp  = meta.employee || {};
-    const proj = meta.project  || {};
-    const empName = emp.lastName ? [emp.lastName, emp.firstName].filter(Boolean).join(', ') : '-';
-    const dateRaw = meta.createdAt || meta.date || '';
-    return {
-      source:      'form',
-      id:          `form_${m.customFormDataId}_${m.filename}`,
-      formDataId:  m.customFormDataId,
-      filename:    m.filename,
-      formName:    meta.name || '-',
-      projectId:   proj.id   || null,
-      projectName: proj.name || (proj.id ? projectMap[proj.id] : '-') || '-',
-      employeeId:  emp.id    || null,
-      employeeName:empName,
-      status:      statusMap[meta.status] || meta.status || '-',
-      dateRaw,
-      dateFormatted: formatDate(dateRaw),
-      imgUrl:      null,
-      imgUrlFn:    () => api(`/custom_form_data/mediaData?formDataId=${m.customFormDataId}&filename=${encodeURIComponent(m.filename)}`),
-    };
-  });
-}
-
-// ============================================================
-// PROJEKTDOKUMENT-BILDER
-// ============================================================
-async function loadDocImages(projects) {
-  const from = document.getElementById('fFrom').value;
-  const to   = document.getElementById('fTo').value;
-  const imgExt = new Set(['.jpg','.jpeg','.png','.gif','.webp','.bmp','.tiff']);
-
-  // Sequentiell in 3er-Batches mit 1.5s Pause um Rate-Limit (100 req/min) zu vermeiden
-  const allDocs = [];
-  const BATCH = 3;
-  const DELAY = 1500; // ms zwischen Batches
-
-  for (let i = 0; i < projects.length; i += BATCH) {
-    if (loadToken !== (window._currentLoadToken || loadToken)) break; // Abbruch
-    const batch = projects.slice(i, i + BATCH);
-    const results = await Promise.allSettled(batch.map(async proj => {
-      let url = api(`/file/fetch?filter[ownerType]=PROJECT&filter[ownerId]=${proj.id}&limit=500`);
-      if (from) url += `&filter[from]=${from}`;
-      if (to)   url += `&filter[to]=${to}`;
-      const data = await fetchJSON(url, true);
-      return (data?.result?.data || [])
-        .filter(f => imgExt.has((f.extension||'').toLowerCase()))
-        .map(f => ({
-          source:      'doc',
-          id:          `doc_${f.id}`,
-          fileId:      f.id,
-          filename:    f.subject || `Datei ${f.id}`,
-          formName:    f.type || 'Dokument',
-          projectId:   proj.id,
-          projectName: proj.name,
-          employeeId:  null,
-          employeeName:'-',
-          status:      'Dokument',
-          dateRaw:     f.date ? f.date+'T00:00:00' : '',
-          dateFormatted: f.date ? formatDateStr(f.date) : '-',
-          description: f.description || '',
-          imgUrl:      null,
-          imgUrlFn:    () => api(`/file/fetch_file?id=${f.id}`),
-        }));
-    }));
-    results.forEach(r => { if (r.status === 'fulfilled') allDocs.push(...r.value); });
-    if (i + BATCH < projects.length) await new Promise(res => setTimeout(res, DELAY));
-  }
-  return allDocs;
-}
-
-// ============================================================
-// FILTER
-// ============================================================
-function applyFilter() {
-  const fProj = document.getElementById('fProj').value;
-  const fEmp  = document.getElementById('fEmp').value;
-  const fStat = document.getElementById('fStat').value;
-  const fForm = document.getElementById('fForm').value;
-  const fFrom = document.getElementById('fFrom').value;
-  const fTo   = document.getElementById('fTo').value;
-
-  allImages = rawImages.filter(img => {
-    if (!sourceForm && img.source === 'form') return false;
-    if (!sourceDoc  && img.source === 'doc')  return false;
-    if (fProj && String(img.projectId) !== String(fProj)) return false;
-    if (fEmp  && img.source === 'form' && String(img.employeeId) !== String(fEmp)) return false;
-    if (fStat && img.status !== fStat) return false;
-    if (fForm && img.formName !== fForm) return false;
-    if (fFrom && img.dateRaw && img.dateRaw.substring(0,10) < fFrom) return false;
-    if (fTo   && img.dateRaw && img.dateRaw.substring(0,10) > fTo)   return false;
-    return true;
-  });
-
-  currentPage = 0;
-  currentIdx  = 0;
-  renderThumbs();
-  updateStats();
-  if (allImages.length > 0) selectImage(0); else clearViewer();
-}
-
-function resetFilter() {
-  setQuick('lastmonth');
-  document.getElementById('fProj').value = '';
-  document.getElementById('fEmp').value  = '';
-  document.getElementById('fStat').value = '';
-  document.getElementById('fForm').value = '';
-  sourceForm = true; sourceDoc = true;
-  document.getElementById('srcForm').classList.add('on');
-  document.getElementById('srcDoc').classList.add('on');
-  applyFilter();
-}
-
-function toggleSource(src) {
-  if (src === 'form') {
-    sourceForm = !sourceForm;
-    document.getElementById('srcForm').classList.toggle('on', sourceForm);
-  } else {
-    sourceDoc = !sourceDoc;
-    document.getElementById('srcDoc').classList.toggle('on', sourceDoc);
-  }
-  applyFilter();
-}
-
-// ============================================================
-// THUMBNAILS
-// ============================================================
-function renderThumbs() {
-  const list  = document.getElementById('thumbList');
-  list.innerHTML = '';
-  const start = currentPage * pageSize;
-  const end   = Math.min(start + pageSize, allImages.length);
-
-  allImages.slice(start, end).forEach((img, li) => {
-    const gi = start + li;
-    const div = document.createElement('div');
-    div.className = 'thumb-item' + (gi === currentIdx ? ' active' : '');
-    div.dataset.idx = gi;
-
-    // Bild-Bereich
-    const wrap = document.createElement('div');
-    wrap.className = 't-img-wrap';
-
-    // Source-Badge
-    const badge = document.createElement('span');
-    badge.className = 't-src ' + img.source;
-    badge.textContent = img.source === 'form' ? 'FRM' : 'DOK';
-    wrap.appendChild(badge);
-
-    // Nummer
-    const num = document.createElement('span');
-    num.className = 't-num';
-    num.textContent = gi + 1;
-    wrap.appendChild(num);
-
-    if (img.thumbUrl) {
-      const tImg = document.createElement('img');
-      tImg.className = 't-img';
-      tImg.src = img.thumbUrl;
-      wrap.appendChild(tImg);
-    } else {
-      // Lade-Spinner
-      const ld = document.createElement('div');
-      ld.className = 't-loading';
-      ld.innerHTML = '<div class="t-spinner"></div>';
-      wrap.appendChild(ld);
-      lazyLoadThumb(img, ld, wrap);
-    }
-
-    div.appendChild(wrap);
-
-    // Meta
-    const meta = document.createElement('div');
-    meta.className = 't-meta';
-    // Projektnamen kürzen (max 18 Zeichen)
-    const pname = img.projectName || '-';
-    const pshort = pname.length > 18 ? pname.substring(0,17)+'…' : pname;
-    meta.innerHTML =
-      `<div class="t-proj" title="${escHtml(pname)}">${escHtml(pshort)}</div>` +
-      `<div class="t-date">${img.dateFormatted}</div>` +
-      `<div class="t-emp">${escHtml(img.employeeName)}</div>`;
-    div.appendChild(meta);
-
-    div.addEventListener('click', () => selectImage(gi));
-    list.appendChild(div);
-  });
-
-  // Pagination
-  const total = Math.ceil(allImages.length / pageSize);
-  document.getElementById('pgP').disabled = currentPage === 0;
-  document.getElementById('pgN').disabled = currentPage >= total - 1;
-  const s1 = allImages.length > 0 ? start+1 : 0;
-  document.getElementById('pgInfo').textContent = `${s1}–${end}/${allImages.length}`;
-}
-
-// Lazy-Load mit IntersectionObserver für Performance
-const thumbObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      const wrap = entry.target;
-      const imgObj = wrap._imgObj;
-      if (imgObj && !imgObj.thumbUrl) {
-        loadThumbNow(imgObj, wrap);
-      }
-      thumbObserver.unobserve(wrap);
-    }
-  });
-}, {rootMargin: '100px'});
-
-function lazyLoadThumb(imgObj, loadingEl, wrap) {
-  wrap._imgObj = imgObj;
-  thumbObserver.observe(wrap);
-}
-
-async function loadThumbNow(imgObj, wrap) {
-  try {
-    // Direkte API-URL verwenden (kein Blob - funktioniert in file:// und https://)
-    const directUrl = imgObj.imgUrlFn();
-    imgObj.thumbUrl = directUrl;
-    imgObj.imgUrl   = directUrl;
-
-    // Spinner ersetzen
-    const ld = wrap.querySelector('.t-loading');
-    if (ld) {
-      const tImg = document.createElement('img');
-      tImg.className = 't-img';
-      tImg.src = directUrl;
-      tImg.onerror = () => setThumbError(wrap);
-      wrap.replaceChild(tImg, ld);
-    }
-    // Falls aktuell ausgewählt: Viewer aktualisieren
-    if (allImages.indexOf(imgObj) === currentIdx) showImage(imgObj);
-  } catch(e) { setThumbError(wrap); }
-}
-
-function setThumbError(wrap) {
-  const ld = wrap.querySelector('.t-loading');
-  if (ld) {
-    const ph = document.createElement('div');
-    ph.className = 't-ph';
-    ph.textContent = '⚠';
-    wrap.replaceChild(ph, ld);
-  }
-}
-
-// ============================================================
-// SELECT & SHOW
-// ============================================================
-function selectImage(idx) {
-  if (idx < 0 || idx >= allImages.length) return;
-  currentIdx = idx;
-
-  const targetPage = Math.floor(idx / pageSize);
-  if (targetPage !== currentPage) {
-    currentPage = targetPage;
-    renderThumbs();
-  } else {
-    document.querySelectorAll('.thumb-item').forEach(el => {
-      el.classList.toggle('active', parseInt(el.dataset.idx) === idx);
-    });
-    const active = document.querySelector('.thumb-item.active');
-    if (active) active.scrollIntoView({block:'nearest', inline:'nearest'});
-  }
-
-  document.getElementById('imgCounter').textContent = `${idx+1} / ${allImages.length}`;
-  showImage(allImages[idx]);
-}
-
-async function showImage(img) {
-  const mainImg     = document.getElementById('mainImg');
-  const placeholder = document.getElementById('imgPlaceholder');
-  showLoading(true);
-
-  try {
-    // Direkte API-URL - kein Blob-Umweg nötig (CORS: access-control-allow-origin: *)
-    const url = img.imgUrl || img.imgUrlFn();
-    img.imgUrl = url;
-    mainImg.onload  = () => { showLoading(false); };
-    mainImg.onerror = () => {
-      showLoading(false);
-      mainImg.style.display = 'none';
-      placeholder.style.display = 'flex';
-      placeholder.innerHTML = '<div class="ph-icon">&#9888;</div><div class="ph-text">Bild nicht ladbar</div>';
-    };
-    mainImg.src = url;
-    mainImg.style.display = 'block';
-    placeholder.style.display = 'none';
-    updateInfoBar(img);
-    return; // showLoading wird via onload/onerror gesetzt
-  } catch(e) {
-    mainImg.style.display = 'none';
-    placeholder.style.display = 'flex';
-    placeholder.innerHTML = '<div class="ph-icon">&#9888;</div><div class="ph-text">Bild nicht ladbar</div>';
-  }
-
-  showLoading(false);
-  updateInfoBar(img);
-}
-
-function clearViewer() {
-  const mainImg = document.getElementById('mainImg');
-  mainImg.style.display = 'none';
-  mainImg.src = '';
-  const ph = document.getElementById('imgPlaceholder');
-  ph.style.display = 'flex';
-  ph.innerHTML = '<div class="ph-icon">&#128269;</div><div class="ph-text">Keine Bilder gefunden</div>';
-  document.getElementById('imgCounter').textContent = '';
-  ['iProj','iDate','iForm','iEmp','iFile','iSrc'].forEach(id => {
-    document.getElementById(id).textContent = '—';
-  });
-  document.getElementById('iStat').innerHTML = '—';
-}
-
-function updateInfoBar(img) {
-  document.getElementById('iProj').textContent = img.projectName || '—';
-  document.getElementById('iDate').textContent = img.dateFormatted || '—';
-  document.getElementById('iForm').textContent = img.formName || '—';
-  document.getElementById('iEmp').textContent  = img.employeeName || '—';
-  document.getElementById('iSrc').textContent  = img.source === 'form' ? 'Formulardaten' : 'Projektdokument';
-  document.getElementById('iFile').textContent = img.filename || '—';
-
-  const stat = img.status || '—';
-  const cls  = stat.toLowerCase().replace(/[^a-zäöü]/g,'');
-  document.getElementById('iStat').innerHTML =
-    `<span class="status-badge ${cls}">${escHtml(stat)}</span>`;
-}
-
-function updateStats() {
-  const fc = allImages.filter(i => i.source==='form').length;
-  const dc = allImages.filter(i => i.source==='doc').length;
-  const pc = new Set(allImages.map(i => i.projectId)).size;
-  document.getElementById('stats').textContent =
-    `${allImages.length} Bilder  |  ${fc} Formulare  |  ${dc} Dokumente  |  ${pc} Projekte`;
-}
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-function navigate(dir) {
-  const n = currentIdx + dir;
-  if (n >= 0 && n < allImages.length) selectImage(n);
-}
-
-function changePage(dir) {
-  const total = Math.ceil(allImages.length / pageSize);
-  const np = currentPage + dir;
-  if (np >= 0 && np < total) {
-    currentPage = np;
-    renderThumbs();
-    selectImage(currentPage * pageSize);
-  }
-}
-
-// ============================================================
-// SWIPE (Touch + Maus)
-// ============================================================
-function setupSwipe() {
-  const wrap = document.getElementById('imgWrap');
-  let sx=0, sy=0, st=0, dragging=false;
-
-  wrap.addEventListener('touchstart', e => {
-    sx = e.touches[0].clientX;
-    sy = e.touches[0].clientY;
-    st = Date.now();
-  }, {passive:true});
-
-  wrap.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - sx;
-    const dy = e.changedTouches[0].clientY - sy;
-    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy)*1.5 && Date.now()-st < 500)
-      navigate(dx < 0 ? 1 : -1);
-  }, {passive:true});
-
-  wrap.addEventListener('mousedown', e => { sx=e.clientX; sy=e.clientY; st=Date.now(); dragging=true; });
-  wrap.addEventListener('mouseup', e => {
-    if (!dragging) return; dragging=false;
-    const dx = e.clientX-sx, dy = e.clientY-sy;
-    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy)*1.5 && Date.now()-st < 500)
-      navigate(dx < 0 ? 1 : -1);
-  });
-  wrap.addEventListener('mouseleave', () => dragging=false);
-}
-
-// ============================================================
-// LIGHTBOX
-// ============================================================
-function openLightbox() {
-  const src = document.getElementById('mainImg').src;
-  if (!src || src === window.location.href) return;
-  document.getElementById('lbImg').src = src;
-  document.getElementById('lightbox').classList.add('open');
-}
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
-
-// ============================================================
-// DOWNLOAD
-// ============================================================
-async function downloadCurrent() {
-  if (currentIdx < 0 || currentIdx >= allImages.length) return;
-  const img = allImages[currentIdx];
-  try {
-    const url  = img.imgUrl || img.imgUrlFn();
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = img.filename || `bild_${currentIdx+1}.jpg`;
-    a.click();
-  } catch(e) { showToast('Download fehlgeschlagen'); }
-}
-
-// ============================================================
-// HELPERS
-// ============================================================
-async function fetchJSON(url, emptyOn400 = false) {
+async function apiGet(path){
+  const sep = path.includes('?')?'&':'?';
+  const url = BASE+path+sep+'apitoken='+KEY;
   const r = await fetch(url);
-  if (!r.ok) {
-    if (emptyOn400 && r.status === 400) return null; // kein Fehler bei "nicht gefunden"
-    if (r.status === 429) {
-      // Rate-Limit: 2 Sekunden warten und nochmal
-      await new Promise(res => setTimeout(res, 2000));
-      const r2 = await fetch(url);
-      if (!r2.ok) return null;
-      return r2.json();
-    }
-    throw new Error(`HTTP ${r.status}`);
+  if(!r.ok){
+    if(r.status===400||r.status===404) return null;
+    throw new Error('HTTP '+r.status);
   }
   return r.json();
 }
 
-function fillSelect(id, items, placeholder) {
-  const sel = document.getElementById(id);
-  const cur = sel.value;
-  sel.innerHTML = `<option value="">${placeholder}</option>`;
-  items.forEach(({v,t}) => {
-    const o = document.createElement('option');
-    o.value = v; o.textContent = t;
-    sel.appendChild(o);
+// ═══════════════════════════════════════════════
+// SCHNELLFILTER
+// ═══════════════════════════════════════════════
+function setQ(q){
+  const now = new Date();
+  let from, to = today();
+  if(q==='today')     { from=today(); }
+  else if(q==='yesterday'){ const y=new Date(now); y.setDate(y.getDate()-1); from=to=isoDate(y); }
+  else if(q==='week') { const d=new Date(now); d.setDate(d.getDate()-d.getDay()+(d.getDay()===0?-6:1)); from=isoDate(d); }
+  else if(q==='month'){ from=isoDate(new Date(now.getFullYear(),now.getMonth(),1)); }
+  else if(q==='lastmonth'){ const lm=new Date(now.getFullYear(),now.getMonth()-1,1); const le=new Date(now.getFullYear(),now.getMonth(),0); from=isoDate(lm); to=isoDate(le); }
+  else if(q==='year') { from=now.getFullYear()+'-01-01'; }
+  else if(q==='all')  { from='2000-01-01'; }
+  $('fFrom').value=from; $('fTo').value=to;
+  document.querySelectorAll('.qb').forEach(b=>b.classList.remove('on'));
+  document.querySelector('[data-q="'+q+'"]').classList.add('on');
+  loadAll();
+}
+['fFrom','fTo'].forEach(id=>$(id).addEventListener('change',()=>{
+  document.querySelectorAll('.qb').forEach(b=>b.classList.remove('on'));
+}));
+
+// ═══════════════════════════════════════════════
+// STAMMDATEN
+// ═══════════════════════════════════════════════
+async function loadMaster(){
+  try{
+    const pd = await apiGet('/project/fetch?limit=500');
+    if(pd?.result?.data){
+      pd.result.data.forEach(p=>{ projects[p.id]=p.name||('Projekt '+p.id); });
+      const sel=$('fProj');
+      sel.innerHTML='<option value="">Alle Projekte</option>';
+      pd.result.data.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(p=>{
+        sel.insertAdjacentHTML('beforeend',`<option value="${p.id}">${esc(p.name||p.id)}</option>`);
+      });
+    }
+  }catch(e){console.warn('Projekte:',e);}
+  try{
+    const ed = await apiGet('/employee/fetch?limit=500');
+    if(ed?.result?.data){
+      ed.result.data.forEach(e=>{
+        employees[e.id]=((e.lastName||'')+(e.firstName?', '+e.firstName:'')).trim()||('MA '+e.id);
+      });
+      const sel=$('fEmp');
+      sel.innerHTML='<option value="">Alle Erfasser</option>';
+      ed.result.data.sort((a,b)=>(a.lastName||'').localeCompare(b.lastName||'')).forEach(e=>{
+        sel.insertAdjacentHTML('beforeend',`<option value="${e.id}">${esc((e.lastName||'')+(e.firstName?', '+e.firstName:''))}</option>`);
+      });
+    }
+  }catch(e){console.warn('Mitarbeiter:',e);}
+}
+
+// ═══════════════════════════════════════════════
+// ALLE BILDER LADEN (mit Pagination)
+// ═══════════════════════════════════════════════
+async function loadAll(){
+  const tok = ++loadTok;
+  const from = $('fFrom').value;
+  const to   = $('fTo').value;
+  if(!from||!to){ setStatus('Bitte Datum wählen.',true); return; }
+
+  $('btnLoad').disabled=true;
+  allImgs=[]; filtered=[];
+  renderThumbs(); clearViewer();
+  setProgress(5);
+  setStatus('Lade Daten…');
+
+  try{
+    // ── 1. FORMULARDATEN-BILDER (alle Seiten) ──
+    setStatus('Lade Formular-Bilder…');
+    let formFiles = [];
+    let offset = 0;
+    let pagesDone = 0;
+
+    while(true){
+      if(tok!==loadTok) return;
+      const url = `/custom_form_data/media?limit=${PAGE_SIZE}&offset=${offset}&filter[from]=${from}&filter[to]=${to}`;
+      let data;
+      try{ data = await apiGet(url); }catch(e){ break; }
+      if(!data) break;
+      const files = data.result?.files || data.result?.data || [];
+      if(files.length===0) break;
+      formFiles.push(...files);
+      offset += files.length;
+      pagesDone++;
+      setStatus(`Formular-Bilder: ${formFiles.length} geladen…`);
+      if(files.length < PAGE_SIZE) break; // letzte Seite
+      await sleep(200);
+    }
+
+    // Metadaten für alle customFormDataIds holen
+    const ids = [...new Set(formFiles.map(f=>f.customFormDataId))];
+    const metaMap = {};
+    for(let i=0;i<ids.length;i+=50){
+      if(tok!==loadTok) return;
+      const chunk = ids.slice(i,i+50);
+      try{
+        const fd = await apiGet('/custom_form_data/fetch?limit=50&filter[byIds]='+chunk.join(','));
+        if(fd?.result?.data) fd.result.data.forEach(item=>{ metaMap[item.id]=item; });
+      }catch(e){}
+      await sleep(100);
+    }
+
+    const formImages = formFiles.map(f=>{
+      const meta = metaMap[f.customFormDataId]||{};
+      const proj = meta.project||{};
+      const emp  = meta.employee||{};
+      const def  = meta.customFormDefinition||{};
+      const projName = proj.name||projects[proj.id]||'—';
+      const empName  = emp.lastName?(emp.lastName+(emp.firstName?', '+emp.firstName:'')):employees[emp.id]||'—';
+      const formName = def.name||'Formular';
+      formSet.add(formName);
+      return {
+        id: f.customFormDataId,
+        filename: f.filename,
+        date: meta.date||from,
+        projectId: proj.id||'',
+        projectName: projName,
+        empName, empId: emp.id||'',
+        formName,
+        status: meta.status||'',
+        source: 'FORM',
+        imgUrl: `${BASE}/custom_form_data/mediaData?formDataId=${f.customFormDataId}&filename=${encodeURIComponent(f.filename)}&apitoken=${KEY}`
+      };
+    });
+
+    if(tok!==loadTok) return;
+    setProgress(45);
+
+    // ── 2. PROJEKTDOKUMENTE (alle Projekte, alle Seiten) ──
+    setStatus('Lade Projektdokumente…');
+    let docImages = [];
+    const projIds = Object.keys(projects);
+    const IMG_EXT = new Set(['.jpg','.jpeg','.png','.gif','.webp','.bmp','.tiff','.heic']);
+
+    for(let i=0;i<projIds.length;i+=3){
+      if(tok!==loadTok) return;
+      const chunk = projIds.slice(i,i+3);
+      const results = await Promise.all(chunk.map(async pid=>{
+        let docs=[];
+        let off=0;
+        while(true){
+          let url = `/file/fetch?filter[ownerType]=PROJECT&filter[ownerId]=${pid}&limit=500&offset=${off}`;
+          if(from!=='2000-01-01') url+=`&filter[from]=${from}&filter[to]=${to}`;
+          let fd;
+          try{ fd=await apiGet(url); }catch(e){ break; }
+          if(!fd?.result?.data||fd.result.data.length===0) break;
+          const imgs = fd.result.data.filter(f=>IMG_EXT.has((f.extension||'').toLowerCase()));
+          imgs.forEach(f=>docs.push({
+            id: f.id,
+            filename: f.subject||String(f.id),
+            date: f.date||from,
+            projectId: pid,
+            projectName: projects[pid]||'—',
+            empName: '—', empId: '',
+            formName: f.type||'Dokument',
+            status: 'DOC',
+            source: 'DOC',
+            imgUrl: `${BASE}/file/fetch_file?id=${f.id}&apitoken=${KEY}`
+          }));
+          off+=fd.result.data.length;
+          if(fd.result.data.length<500) break;
+          await sleep(150);
+        }
+        return docs;
+      }));
+      results.forEach(r=>docImages.push(...r));
+      setProgress(45+Math.round((i/projIds.length)*50));
+      if(i+3<projIds.length) await sleep(400);
+    }
+
+    if(tok!==loadTok) return;
+
+    // ── ZUSAMMENFÜHREN ──
+    allImgs = [...formImages,...docImages];
+    allImgs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+    // Formular-Dropdown
+    const fsel=$('fForm');
+    fsel.innerHTML='<option value="">Alle Formulare</option>';
+    [...formSet].sort().forEach(n=>{
+      fsel.insertAdjacentHTML('beforeend',`<option value="${esc(n)}">${esc(n)}</option>`);
+    });
+
+    setProgress(100);
+    applyFilter();
+    setStatus(`${allImgs.length} Bilder geladen (${formImages.length} Formulare, ${docImages.length} Dokumente)`);
+
+  }catch(e){
+    setStatus('Fehler: '+e.message,true);
+  }finally{
+    $('btnLoad').disabled=false;
+    setTimeout(()=>setProgress(0),800);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// FILTER
+// ═══════════════════════════════════════════════
+function applyFilter(){
+  const proj = $('fProj').value;
+  const emp  = $('fEmp').value;
+  const stat = $('fStat').value;
+  const form = $('fForm').value;
+  const from = $('fFrom').value;
+  const to   = $('fTo').value;
+
+  filtered = allImgs.filter(img=>{
+    if(proj && String(img.projectId)!==String(proj)) return false;
+    if(emp  && String(img.empId)!==String(emp))      return false;
+    if(stat){
+      if(stat==='DOC'&&img.source!=='DOC') return false;
+      if(stat!=='DOC'&&img.status!==stat)  return false;
+    }
+    if(form && img.formName!==form) return false;
+    if(from && img.date<from) return false;
+    if(to   && img.date>to)   return false;
+    return true;
   });
-  if (cur) sel.value = cur;
+
+  tPage=0; curIdx=0;
+  renderThumbs();
+  if(filtered.length>0) showImg(0);
+  else clearViewer();
+}
+['fProj','fEmp','fStat','fForm'].forEach(id=>$(id).addEventListener('change',applyFilter));
+
+// ═══════════════════════════════════════════════
+// THUMBNAILS
+// ═══════════════════════════════════════════════
+function renderThumbs(){
+  const pane=$('tpane');
+  pane.innerHTML='';
+  const mobile = window.innerWidth<=768;
+  const start  = mobile?0:tPage*TPP;
+  const end    = mobile?filtered.length:start+TPP;
+  const slice  = filtered.slice(start,end);
+
+  slice.forEach((img,i)=>{
+    const ri=start+i;
+    const div=document.createElement('div');
+    div.className='ti'+(ri===curIdx?' act':'');
+    div.onclick=()=>showImg(ri);
+
+    const sp=document.createElement('div');
+    sp.className='tsp';
+    sp.innerHTML='<div class="ring"></div>';
+    div.appendChild(sp);
+
+    const im=document.createElement('img');
+    im.alt='';
+    im.onload =()=>{ im.classList.add('loaded'); sp.remove(); };
+    im.onerror=()=>{ sp.innerHTML='<span style="font-size:16px;color:var(--mut)">✕</span>'; };
+    div.appendChild(im);
+
+    const badge=document.createElement('div');
+    badge.className='tb';
+    badge.textContent=img.projectName!=='—'?img.projectName:img.formName;
+    div.appendChild(badge);
+
+    pane.appendChild(div);
+
+    // Lazy Load via IntersectionObserver
+    const obs=new IntersectionObserver(en=>{
+      if(en[0].isIntersecting){ im.src=img.imgUrl; obs.disconnect(); }
+    },{root:pane,rootMargin:'150px'});
+    obs.observe(div);
+  });
+
+  // Pagination (nur Desktop)
+  if(!mobile && filtered.length>TPP){
+    const total=Math.ceil(filtered.length/TPP);
+    const pg=document.createElement('div');
+    pg.id='tpager';
+    const bp=document.createElement('button'); bp.textContent='‹'; bp.disabled=tPage===0;
+    bp.onclick=()=>{ tPage--; renderThumbs(); };
+    const bn=document.createElement('button'); bn.textContent='›'; bn.disabled=tPage>=total-1;
+    bn.onclick=()=>{ tPage++; renderThumbs(); };
+    const lbl=document.createElement('span'); lbl.textContent=(tPage+1)+' / '+total;
+    pg.appendChild(bp); pg.appendChild(lbl); pg.appendChild(bn);
+    pane.appendChild(pg);
+  }
 }
 
-function fmtDate(d) {
-  return d.toISOString().split('T')[0];
+// ═══════════════════════════════════════════════
+// BILD ANZEIGEN
+// ═══════════════════════════════════════════════
+function showImg(idx){
+  if(idx<0||idx>=filtered.length) return;
+  curIdx=idx;
+  const img=filtered[idx];
+  const mi=$('mimg'), ph=$('ph');
+
+  mi.style.opacity='0';
+  mi.style.display='block';
+  ph.style.display='none';
+  mi.onload =()=>{ mi.style.opacity='1'; };
+  mi.onerror=()=>{ mi.style.display='none'; ph.style.display='block'; ph.textContent='Bild nicht ladbar'; };
+  mi.src=img.imgUrl;
+
+  $('iproj').textContent = img.projectName||'—';
+  $('idate').textContent = fmtDate(img.date);
+
+  $('memp').innerHTML  = img.empName!=='—'?`<strong>${esc(img.empName)}</strong>`:'';
+  $('mform').innerHTML = img.formName?`<span style="color:var(--mut)">Formular:</span> <strong>${esc(img.formName)}</strong>`:'';
+  $('msrc').innerHTML  = img.source==='FORM'?'<span class="bdg bf">Formular</span>':'<span class="bdg bd">Dokument</span>';
+
+  const SL={FILLED:'Ausgefüllt',FINISHED:'Abgeschlossen',OPEN:'Offen',REJECTED:'Abgelehnt',DOC:'Dokument'};
+  const SC={FILLED:'bok',FINISHED:'bdn',OPEN:'bop',REJECTED:'brj',DOC:'bd'};
+  const st=img.status||(img.source==='DOC'?'DOC':'');
+  $('mst').innerHTML = st?`<span class="bdg ${SC[st]||''}">${SL[st]||st}</span>`:'';
+  $('icnt').textContent = (idx+1)+' / '+filtered.length;
+
+  // Aktives Thumb
+  const mobile=window.innerWidth<=768;
+  const pane=$('tpane');
+  pane.querySelectorAll('.ti').forEach((el,i)=>{
+    const ri=mobile?i:tPage*TPP+i;
+    el.classList.toggle('act',ri===idx);
+  });
+  const localIdx=mobile?idx:idx-tPage*TPP;
+  const thumbEls=pane.querySelectorAll('.ti');
+  if(thumbEls[localIdx]) thumbEls[localIdx].scrollIntoView({behavior:'smooth',block:mobile?'nearest':'center',inline:mobile?'center':'nearest'});
 }
 
-function formatDate(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  } catch(e) { return iso.substring(0,10); }
+function clearViewer(){
+  const mi=$('mimg'), ph=$('ph');
+  mi.src=''; mi.style.display='none';
+  ph.style.display='block';
+  ph.textContent=filtered.length===0&&allImgs.length>0?'Keine Bilder für diesen Filter':'Keine Bilder gefunden';
+  $('iproj').textContent='—'; $('idate').textContent='—';
+  ['memp','mform','msrc','mst','icnt'].forEach(id=>$(id).innerHTML='');
 }
 
-function formatDateStr(str) {
-  if (!str) return '—';
-  try { const [y,m,d]=str.split('-'); return `${d}.${m}.${y}`; }
-  catch(e) { return str; }
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function nav(dir){
+  const next=curIdx+dir;
+  if(next<0||next>=filtered.length) return;
+  const mobile=window.innerWidth<=768;
+  if(!mobile){
+    const np=Math.floor(next/TPP);
+    if(np!==tPage){ tPage=np; renderThumbs(); }
+  }
+  showImg(next);
 }
 
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')  nav(-1);
+  if(e.key==='ArrowRight') nav(1);
+  if(e.key==='Escape') closeLB();
+});
+
+// Swipe Touch
+let sx=0,sy=0,st2=0;
+const iw=$('iwrap');
+iw.addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; st2=Date.now(); },{passive:true});
+iw.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-sx;
+  const dy=e.changedTouches[0].clientY-sy;
+  const dt=Date.now()-st2;
+  if(Math.abs(dx)>80&&Math.abs(dx)>Math.abs(dy)*1.5&&dt<500) nav(dx<0?1:-1);
+},{passive:true});
+
+// Maus-Drag
+let md=false,mx=0;
+iw.addEventListener('mousedown',e=>{ md=true; mx=e.clientX; });
+iw.addEventListener('mouseup',  e=>{ if(!md)return; md=false; const dx=e.clientX-mx; if(Math.abs(dx)>60) nav(dx<0?1:-1); });
+iw.addEventListener('mouseleave',()=>{ md=false; });
+
+// ═══════════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════════
+function openLB(){
+  if(!filtered[curIdx]) return;
+  $('lbImg').src=filtered[curIdx].imgUrl;
+  $('lb').classList.add('open');
+}
+function closeLB(){ $('lb').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════
+// DOWNLOAD
+// ═══════════════════════════════════════════════
+async function dlCurrent(){
+  if(!filtered[curIdx]) return;
+  const img=filtered[curIdx];
+  try{
+    const r=await fetch(img.imgUrl);
+    const blob=await r.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=img.filename||('bild_'+img.id);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(e){ alert('Download fehlgeschlagen: '+e.message); }
 }
 
-function setProgress(p) {
-  document.getElementById('progress').style.width = p + '%';
-}
-
-function showLoading(s) {
-  document.getElementById('loadingOverlay').classList.toggle('show', s);
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display='none', 3000);
-}
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+(async()=>{
+  await loadMaster();
+  setQ('today');
+})();
 </script>
 </body>
 </html>
